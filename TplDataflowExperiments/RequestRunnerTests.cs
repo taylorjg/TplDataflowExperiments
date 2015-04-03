@@ -12,7 +12,7 @@ namespace TplDataflowExperiments
     public class RequestRunnerTests
     {
         [Test]
-        public void Test()
+        public void SomeRequests()
         {
             var requests = BuildRequests(50);
             var responses = RequestRunner.RunAsyncRequests(requests, CreateTask, 5);
@@ -20,6 +20,14 @@ namespace TplDataflowExperiments
             {
                 Console.WriteLine("response: index: {0}; ms: {1}", response.Item1, response.Item2);
             }
+        }
+
+        [Test]
+        public void NoRequests()
+        {
+            var requests = Enumerable.Empty<Tuple<int, int>>();
+            var responses = RequestRunner.RunAsyncRequests(requests, CreateTask, 5);
+            Assert.That(responses, Is.Empty);
         }
 
         private static IEnumerable<Tuple<int, int>> BuildRequests(int numRequests)

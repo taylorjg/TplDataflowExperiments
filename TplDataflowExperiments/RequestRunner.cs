@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 
@@ -12,6 +13,8 @@ namespace TplDataflowExperiments
             Func<TRequest, Task<TResponse>> createTask,
             int maxDegreeOfParallelism = 1)
         {
+            // TODO: add error handling
+
             var options = new ExecutionDataflowBlockOptions
             {
                 MaxDegreeOfParallelism = maxDegreeOfParallelism
@@ -23,6 +26,7 @@ namespace TplDataflowExperiments
             foreach (var request in requests) transformBlock.Post(request);
             transformBlock.Complete();
             transformBlock.Completion.Wait();
+            if (bufferBlock.Count == 0) return Enumerable.Empty<TResponse>();
             IList<TResponse> results;
             bufferBlock.TryReceiveAll(out results);
             return results;
