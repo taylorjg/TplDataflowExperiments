@@ -16,7 +16,9 @@ namespace TplDataflowExperiments
         {
             var requests = BuildRequests(50);
             var responses = RequestRunner.RunAsyncRequests(requests, CreateTask, 5);
-            foreach (var response in responses)
+            Assert.That(responses.Item1, Is.Null);
+            Assert.That(responses.Item2, Is.Not.Empty);
+            foreach (var response in responses.Item2)
             {
                 Console.WriteLine("response: index: {0}; ms: {1}", response.Item1, response.Item2);
             }
@@ -27,7 +29,26 @@ namespace TplDataflowExperiments
         {
             var requests = Enumerable.Empty<Tuple<int, int>>();
             var responses = RequestRunner.RunAsyncRequests(requests, CreateTask, 5);
-            Assert.That(responses, Is.Empty);
+            Assert.That(responses.Item1, Is.Null);
+            Assert.That(responses.Item2, Is.Empty);
+        }
+
+        [Test]
+        public void TaskThrowsException()
+        {
+            var requests = BuildRequests(50);
+
+            var responses = RequestRunner.RunAsyncRequests(
+                requests,
+                request =>
+                {
+                    if (request.Item1 == 13) throw new DivideByZeroException();
+                    return CreateTask(request);
+                },
+                5);
+
+            Assert.That(responses.Item1, Is.Not.Null);
+            Assert.That(responses.Item2, Is.Empty);
         }
 
         private static IEnumerable<Tuple<int, int>> BuildRequests(int numRequests)
@@ -46,6 +67,7 @@ namespace TplDataflowExperiments
                     var tuple = (Tuple<int, int>) state;
                     var index = tuple.Item1;
                     var ms = tuple.Item2;
+                    Console.WriteLine("Inside task: index: {0}; ms: {1}", index, ms);
                     return Tuple.Create(index, Convert.ToString(ms));
                 },
                 request);
