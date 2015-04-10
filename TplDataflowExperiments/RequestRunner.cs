@@ -34,9 +34,9 @@ namespace TplDataflowExperiments
             var bufferBlock = new BufferBlock<TResponse>();
             transformBlock.LinkTo(bufferBlock);
 
-            if (!requests.Select(request => transformBlock.Post(request)).All(b => b))
+            if (!requests.Select(request => transformBlock.Post(request)).All(Id))
             {
-                return makeExceptionResult(new InvalidOperationException(FailedToPostRequests));
+                return makeExceptionResult(new ApplicationException(FailedToPostRequests));
             }
 
             try
@@ -48,7 +48,7 @@ namespace TplDataflowExperiments
 
                 IList<TResponse> results;
                 return !bufferBlock.TryReceiveAll(out results)
-                    ? makeExceptionResult(new InvalidOperationException(FailedToReceiveResponses))
+                    ? makeExceptionResult(new ApplicationException(FailedToReceiveResponses))
                     : makeSuccessResult(results);
             }
             catch (AggregateException ae)
@@ -56,5 +56,7 @@ namespace TplDataflowExperiments
                 return makeExceptionResult(ae);
             }
         }
+
+        private static T Id<T>(T t) { return t; }
     }
 }
