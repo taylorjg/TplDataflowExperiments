@@ -9,21 +9,19 @@ namespace TplDataflowExperiments
     public static class RequestRunner
     {
         private const string FailedToPostRequests = "Failed to post all the requests to the transform block";
-        private const string FailedToReceiveResponses = "Failed to receive all the responses from the buffer block";
 
         public static Tuple<Exception, IEnumerable<TResponse>> RunAsyncRequests<TRequest, TResponse>(
             IEnumerable<TRequest> requests,
             Func<TRequest, Task<TResponse>> createTask,
             int maxDegreeOfParallelism = 1)
         {
-            Func<Tuple<Exception, IEnumerable<TResponse>>> makeEmptyResult =
-                () => Tuple.Create(null as Exception, Enumerable.Empty<TResponse>());
-
             Func<Exception, Tuple<Exception, IEnumerable<TResponse>>> makeExceptionResult =
                 ex => Tuple.Create(ex, Enumerable.Empty<TResponse>());
 
             Func<IEnumerable<TResponse>, Tuple<Exception, IEnumerable<TResponse>>> makeSuccessResult =
-                results => Tuple.Create(null as Exception, results);
+                rs => Tuple.Create(null as Exception, rs);
+
+            var responses = new List<TResponse>();
 
             var options = new ExecutionDataflowBlockOptions
             {
@@ -31,8 +29,8 @@ namespace TplDataflowExperiments
             };
 
             var transformBlock = new TransformBlock<TRequest, TResponse>(createTask, options);
-            var bufferBlock = new BufferBlock<TResponse>();
-            transformBlock.LinkTo(bufferBlock);
+            var actionBlock = new ActionBlock<TResponse>(response => responses.Add(response));
+            transformBlock.LinkTo(actionBlock, new DataflowLinkOptions { PropagateCompletion = true });
 
             if (!requests.Select(request => transformBlock.Post(request)).All(Id))
             {
@@ -42,14 +40,8 @@ namespace TplDataflowExperiments
             try
             {
                 transformBlock.Complete();
-                transformBlock.Completion.Wait();
-
-                if (bufferBlock.Count == 0) return makeEmptyResult();
-
-                IList<TResponse> results;
-                return !bufferBlock.TryReceiveAll(out results)
-                    ? makeExceptionResult(new ApplicationException(FailedToReceiveResponses))
-                    : makeSuccessResult(results);
+                actionBlock.Completion.Wait();
+                return makeSuccessResult(responses);
             }
             catch (AggregateException ae)
             {
@@ -57,6 +49,9 @@ namespace TplDataflowExperiments
             }
         }
 
-        private static T Id<T>(T t) { return t; }
+        private static T Id<T>(T t)
+        {
+            return t;
+        }
     }
 }
